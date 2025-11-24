@@ -17,7 +17,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var keywordEditText: EditText
     private lateinit var saveButton: Button
     private lateinit var enableSwitch: Switch
-    private lateinit var targetPhoneEditText: EditText
+    private lateinit var targetEditText: EditText
 
     private val SMS_PERMISSION_CODE = 123
 
@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
         // Initialize views
         slackWebhookEditText = findViewById(R.id.slackWebhookEditText)
         keywordEditText = findViewById(R.id.keywordEditText)
-        targetPhoneEditText = findViewById(R.id.targetPhoneEditText) // NEW
+        targetEditText = findViewById(R.id.targetEditText) // NEW
         saveButton = findViewById(R.id.saveButton)
         enableSwitch = findViewById(R.id.enableSwitch)
 
@@ -100,7 +100,7 @@ class MainActivity : AppCompatActivity() {
 
         editor.putString("slack_webhook", slackWebhookEditText.text.toString())
         editor.putString("keyword", keywordEditText.text.toString())
-        editor.putString("target_phone", targetPhoneEditText.text.toString()) // NEW
+        editor.putString("target_phone", targetEditText.text.toString()) // NEW
         editor.putBoolean("enabled", enableSwitch.isChecked)
 
         editor.apply()
@@ -111,7 +111,7 @@ class MainActivity : AppCompatActivity() {
 
         slackWebhookEditText.setText(prefs.getString("slack_webhook", ""))
         keywordEditText.setText(prefs.getString("keyword", "confirmation code"))
-        targetPhoneEditText.setText(prefs.getString("target_phone", "08501231234")) // NEW
+        targetEditText.setText(prefs.getString("target_phone", "08501231234")) // NEW
         enableSwitch.isChecked = prefs.getBoolean("enabled", false)
     }
 }

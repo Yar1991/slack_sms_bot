@@ -23,10 +23,10 @@ class SMSReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("SMS2Slack", Context.MODE_PRIVATE)
         val isEnabled = prefs.getBoolean("enabled", false)
         val keyword = prefs.getString("keyword", "confirmation code") ?: "confirmation code"
-        val targetPhone = prefs.getString("target_phone", "") ?: ""
+        val target = prefs.getString("target", "") ?: "" // CHANGED: now can be phone OR name
         val webhookUrl = prefs.getString("slack_webhook", "") ?: ""
 
-        if (!isEnabled || webhookUrl.isBlank() || targetPhone.isBlank()) {
+        if (!isEnabled || webhookUrl.isBlank()) {
             return
         }
 
@@ -42,11 +42,9 @@ class SMSReceiver : BroadcastReceiver() {
 
                     Log.d(TAG, "SMS from: $sender, Body: $messageBody")
 
-                    // Check if message is from target phone AND contains keyword
-                    if (phoneNumbersMatch(sender, targetPhone) &&
-                        messageBody.contains(keyword, ignoreCase = true)) {
-
-                        Log.d(TAG, "Target phone and keyword matched! Sending to Slack...")
+                    // NEW: Check if message matches criteria (phone/name AND keyword)
+                    if (matchesCriteria(sender, target, messageBody, keyword)) {
+                        Log.d(TAG, "Criteria matched! Sending to Slack...")
 
                         // Send to Slack
                         sendToSlack(context, webhookUrl, sender, messageBody)
@@ -54,7 +52,7 @@ class SMSReceiver : BroadcastReceiver() {
                         // Show local notification
                         Toast.makeText(
                             context,
-                            "Confirmation code SMS detected and sent to Slack!",
+                            "Matching SMS detected and sent to Slack!",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -63,14 +61,45 @@ class SMSReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun phoneNumbersMatch(sender: String, target: String): Boolean {
+    private fun matchesCriteria(sender: String, target: String, messageBody: String, keyword: String): Boolean {
+        // If no target specified, only check for keyword
+        if (target.isBlank()) {
+            return messageBody.contains(keyword, ignoreCase = true)
+        }
+
+        // Check if target matches sender (as phone number or name) AND contains keyword
+        val senderMatch = matchesSender(sender, target)
+        val keywordMatch = messageBody.contains(keyword, ignoreCase = true)
+
+        Log.d(TAG, "Sender match: $senderMatch, Keyword match: $keywordMatch")
+        return senderMatch && keywordMatch
+    }
+
+    private fun matchesSender(sender: String, target: String): Boolean {
+        // Normalize both for comparison
         val normalizedSender = normalizePhoneNumber(sender)
         val normalizedTarget = normalizePhoneNumber(target)
 
         Log.d(TAG, "Comparing - Sender: $normalizedSender, Target: $normalizedTarget")
 
-        // Exact match after normalization
-        return normalizedSender == normalizedTarget
+        // Case 1: Exact phone number match (after normalization)
+        if (normalizedSender == normalizedTarget) {
+            return true
+        }
+
+        // Case 2: Name match (case-insensitive, using original strings)
+        // This handles cases where sender shows as "Amazon" instead of phone number
+        if (sender.equals(target, ignoreCase = true)) {
+            return true
+        }
+
+        // Case 3: Target contains sender name (partial match)
+        // Useful for matching "Amazon" when sender is "Amazon Pay"
+        if (sender.contains(target, ignoreCase = true)) {
+            return true
+        }
+
+        return false
     }
 
     private fun normalizePhoneNumber(phoneNumber: String): String {
@@ -95,8 +124,6 @@ class SMSReceiver : BroadcastReceiver() {
                 connection.requestMethod = "POST"
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.doOutput = true
-
-                val timestamp = java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date())
 
                 val jsonPayload = """
                 {
